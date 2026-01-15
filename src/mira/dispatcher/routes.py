@@ -143,7 +143,7 @@ async def run_investigation(
             service=context.service_name,
             alert_type=context.alert_type,
             rca={
-                "summary": f"Investigation failed: {e!s}",
+                "summary": f"Investigation failed: {str(e)}",
                 "confidence": "N/A",
                 "error": str(e),
             },

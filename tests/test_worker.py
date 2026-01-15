@@ -64,19 +64,19 @@ class TestInvestigatorAgent:
         assert agent.azure_client.repo_name == "test-repo"
         assert agent.azure_client.project == "TestProject"
 
-    def test_system_prompt_contains_context(
+    def test_agent_context_properties(
         self, settings: Settings, investigation_context: InvestigationContext
     ) -> None:
-        """Test that the system prompt includes context information."""
+        """Test that the agent has proper context configuration."""
         agent = create_investigator_agent(investigation_context, settings)
-        prompt = agent._build_system_prompt()
 
-        assert "test-service" in prompt
-        assert "test-repo" in prompt
-        assert "TestProject" in prompt
-        assert "error_rate" in prompt
-        assert "High Error Rate Alert" in prompt
-        assert "prod" in prompt
+        # Verify the agent has the correct context
+        assert agent.context.service_name == "test-service"
+        assert agent.context.repo_name == "test-repo"
+        assert agent.context.project == "TestProject"
+        assert agent.context.alert_type == "error_rate"
+        assert agent.context.alert_title == "High Error Rate Alert"
+        assert agent.context.environment == "prod"
 
     @pytest.mark.asyncio
     async def test_investigate_returns_result(
