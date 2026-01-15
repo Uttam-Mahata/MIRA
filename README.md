@@ -1,6 +1,50 @@
-# MIRA
-Microservice Incident Response Agent
-Technical Design Document: Automated MTTR Reduction Agent System
+# MIRA - Microservice Incident Response Agent
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-00a393.svg)](https://fastapi.tiangolo.com/)
+[![Google ADK](https://img.shields.io/badge/Google_ADK-1.0+-yellow.svg)](https://github.com/google/adk-python)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+An automated incident investigation system designed to reduce Mean Time To Recovery (MTTR) for microservices ecosystems. MIRA uses Google Agent Development Kit (ADK) for intelligent agents and integrates with Datadog and Azure DevOps via Model Context Protocol (MCP).
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- Datadog API key and Application key
+- Azure DevOps Personal Access Token (PAT)
+- Google API key (for Gemini models)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/MIRA.git
+cd MIRA
+
+# Install dependencies
+pip install -e .
+
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run the dispatcher service
+mira
+```
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f mira
+```
+
+## 📖 Technical Design Document
 
 
 
@@ -181,3 +225,114 @@ Phase 1: Implement the "Dispatcher" and "Service Registry" with hardcoded maps.
 Phase 2: Containerize the solution and deploy to Serverless environment.
 
 Phase 3: Enable "Auto-Comment" on Azure DevOps Pull Requests.
+
+---
+
+## 🏗️ Project Structure
+
+```
+MIRA/
+├── src/mira/
+│   ├── config/          # Configuration management
+│   │   └── settings.py  # Pydantic settings
+│   ├── dispatcher/      # FastAPI dispatcher service
+│   │   ├── main.py      # Application entry point
+│   │   └── routes.py    # API endpoints
+│   ├── registry/        # Service registry
+│   │   ├── models.py    # Data models
+│   │   └── service_registry.py
+│   ├── worker/          # Google ADK worker agent
+│   │   ├── agent.py     # Agent implementation
+│   │   └── tools.py     # Investigation tools
+│   ├── mcp_clients/     # MCP client integrations
+│   │   ├── datadog_client.py
+│   │   └── azure_devops_client.py
+│   └── utils/           # Utility functions
+├── config/
+│   └── service_registry.json  # Service mapping
+├── tests/               # Test suite
+├── Dockerfile           # Container build
+├── docker-compose.yml   # Development setup
+└── pyproject.toml       # Project configuration
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATADOG_API_KEY` | Datadog API key | Yes |
+| `DATADOG_APP_KEY` | Datadog Application key | Yes |
+| `DATADOG_SITE` | Datadog site (default: datadoghq.com) | No |
+| `AZURE_DEVOPS_PAT` | Azure DevOps Personal Access Token | Yes |
+| `AZURE_DEVOPS_ORGANIZATION_URL` | Azure DevOps organization URL | Yes |
+| `AZURE_DEVOPS_ORGANIZATION` | Azure DevOps organization name | Yes |
+| `GOOGLE_API_KEY` | Google API key for Gemini models | Yes |
+| `LLM_MODEL` | LLM model to use (default: gemini-2.0-flash) | No |
+| `WEBHOOK_SECRET` | Secret for webhook signature validation | No |
+
+### Service Registry
+
+Add your services to `config/service_registry.json`:
+
+```json
+{
+  "your-service-name": {
+    "repo_name": "your-repo-name",
+    "project": "AzureDevOpsProject",
+    "owner_team": "your-team",
+    "alert_channel": "#alerts-channel"
+  }
+}
+```
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Service information |
+| `/health` | GET | Health check |
+| `/webhook/datadog` | POST | Receive Datadog alerts |
+| `/investigate` | POST | Manual investigation trigger |
+| `/services` | GET | List registered services |
+| `/services/{name}` | POST | Register a service |
+| `/services/{name}` | DELETE | Remove a service |
+
+## 🧪 Development
+
+### Running Tests
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=mira --cov-report=html
+```
+
+### Code Quality
+
+```bash
+# Lint and format
+ruff check src tests
+ruff format src tests
+
+# Type checking
+mypy src
+```
+
+## 📚 References
+
+- [Google Agent Development Kit (ADK)](https://github.com/google/adk-python) - Agent framework
+- [Datadog MCP Server](https://github.com/shelfio/datadog-mcp) - Datadog integration
+- [Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp) - Azure DevOps integration
+- [FastAPI](https://fastapi.tiangolo.com/) - Web framework
+- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP specification
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

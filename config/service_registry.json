@@ -1,0 +1,34 @@
+{
+  "service-payment-v1": {
+    "repo_name": "payment-api-core",
+    "project": "Payments",
+    "adk_profile": "backend_investigator",
+    "owner_team": "team-fintech",
+    "description": "Payment processing service",
+    "alert_channel": "#payments-alerts"
+  },
+  "service-frontend-web": {
+    "repo_name": "web-portal-react",
+    "project": "Frontend",
+    "adk_profile": "frontend_investigator",
+    "owner_team": "team-ux",
+    "description": "Main web portal frontend",
+    "alert_channel": "#frontend-alerts"
+  },
+  "service-auth": {
+    "repo_name": "auth-service",
+    "project": "Platform",
+    "adk_profile": "backend_investigator",
+    "owner_team": "team-platform",
+    "description": "Authentication and authorization service",
+    "alert_channel": "#platform-alerts"
+  },
+  "service-notifications": {
+    "repo_name": "notification-service",
+    "project": "Platform",
+    "adk_profile": "backend_investigator",
+    "owner_team": "team-platform",
+    "description": "Email, SMS, and push notification service",
+    "alert_channel": "#platform-alerts"
+  }
+}

@@ -1,0 +1,49 @@
+# MIRA - Docker Compose configuration for development
+version: '3.8'
+
+services:
+  mira:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - DATADOG_API_KEY=${DATADOG_API_KEY}
+      - DATADOG_APP_KEY=${DATADOG_APP_KEY}
+      - DATADOG_SITE=${DATADOG_SITE:-datadoghq.com}
+      - AZURE_DEVOPS_PAT=${AZURE_DEVOPS_PAT}
+      - AZURE_DEVOPS_ORGANIZATION_URL=${AZURE_DEVOPS_ORGANIZATION_URL}
+      - AZURE_DEVOPS_ORGANIZATION=${AZURE_DEVOPS_ORGANIZATION}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-gemini-2.0-flash}
+      - SERVICE_REGISTRY_PATH=/app/config/service_registry.json
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+    volumes:
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Optional: Redis for caching (future enhancement)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 3
+
+# volumes:
+#   redis_data:
