@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-00a393.svg)](https://fastapi.tiangolo.com/)
 [![Google ADK](https://img.shields.io/badge/Google_ADK-1.0+-yellow.svg)](https://github.com/google/adk-python)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 
 An automated incident investigation system designed to reduce Mean Time To Recovery (MTTR) for microservices ecosystems. MIRA uses Google Agent Development Kit (ADK) for intelligent agents and integrates with Datadog and Azure DevOps via Model Context Protocol (MCP).
 
@@ -332,7 +332,3 @@ mypy src
 - [Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp) - Azure DevOps integration
 - [FastAPI](https://fastapi.tiangolo.com/) - Web framework
 - [Model Context Protocol](https://modelcontextprotocol.io/) - MCP specification
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
