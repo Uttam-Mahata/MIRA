@@ -184,9 +184,7 @@ class AzureDevOpsMCPClient:
         if not self.repo_name:
             raise ValueError("Repository name must be set to get pull requests")
 
-        logger.info(
-            f"Fetching pull requests: repo={self.repo_name}, status={status}"
-        )
+        logger.info(f"Fetching pull requests: repo={self.repo_name}, status={status}")
 
         # Placeholder implementation
         return []

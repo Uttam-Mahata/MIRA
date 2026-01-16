@@ -73,6 +73,20 @@ class Settings(BaseSettings):
         description="LLM model to use for agents",
     )
 
+    # MCP Integration settings
+    use_mcp_toolset: bool = Field(
+        default=True,
+        description="Use MCPToolset for direct MCP server integration",
+    )
+    datadog_mcp_server_url: str | None = Field(
+        default=None,
+        description="Datadog MCP server URL for HTTP-based integration",
+    )
+    github_personal_access_token: str | None = Field(
+        default=None,
+        description="GitHub Personal Access Token for GitHub MCP integration",
+    )
+
     # Service Registry settings
     service_registry_path: str = Field(
         default="config/service_registry.json",

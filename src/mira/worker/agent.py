@@ -3,6 +3,12 @@ Worker Agent implementation using Google Agent Development Kit (ADK).
 
 The Worker Agent is the intelligent investigator that analyzes incidents.
 It is ephemeral and lives only for the duration of the analysis.
+
+This module supports two modes of operation:
+1. Direct MCP Integration - Uses MCPToolset from Google ADK to connect
+   directly to external MCP servers (Azure DevOps, Datadog, GitHub).
+2. Fallback Mode - Uses local tool implementations when MCP servers
+   are not available or MCP toolset is not configured.
 """
 
 import logging
@@ -13,6 +19,7 @@ from google.adk.agents import Agent
 from mira.config.settings import Settings
 from mira.mcp_clients.azure_devops_client import AzureDevOpsMCPClient
 from mira.mcp_clients.datadog_client import DatadogMCPClient
+from mira.mcp_clients.mcp_toolset import get_investigation_mcp_tools
 from mira.registry.models import InvestigationContext
 from mira.worker.tools import get_investigation_tools
 
@@ -80,24 +87,42 @@ class InvestigatorAgent:
 
     This agent is ephemeral - it is created for each incident investigation
     and disposed of after generating the RCA report.
+
+    The agent supports two modes:
+    1. MCP Mode - Connects directly to external MCP servers using MCPToolset
+    2. Fallback Mode - Uses local tool implementations when MCP is unavailable
     """
 
     def __init__(
         self,
         context: InvestigationContext,
         settings: Settings,
+        use_mcp_toolset: bool = True,
     ) -> None:
         """Initialize the investigator agent.
 
         Args:
             context: The investigation context containing service and alert info.
             settings: Application settings.
+            use_mcp_toolset: Whether to use MCPToolset for direct MCP server
+                           integration. If False or if MCP servers are not
+                           available, falls back to local tool implementations.
         """
         self.context = context
         self.settings = settings
+        self.use_mcp_toolset = use_mcp_toolset
         self._agent: Agent | None = None
+        self._mcp_tools: list[Any] = []
 
-        # Create scoped MCP clients
+        # Try to load MCP toolsets if enabled
+        if use_mcp_toolset:
+            self._mcp_tools = get_investigation_mcp_tools(
+                settings=settings,
+                organization=settings.azure_devops_organization,
+                service_name=context.service_name,
+            )
+
+        # Create scoped MCP clients for fallback mode
         self.datadog_client = DatadogMCPClient(
             api_key=settings.datadog_api_key or "",
             app_key=settings.datadog_app_key or "",
@@ -132,11 +157,24 @@ class InvestigatorAgent:
         Returns:
             Configured Agent instance.
         """
-        tools = get_investigation_tools(
-            datadog_client=self.datadog_client,
-            azure_client=self.azure_client,
-            context=self.context,
-        )
+        # Determine which tools to use
+        if self._mcp_tools:
+            # Use MCP toolsets for direct server integration
+            tools = self._mcp_tools
+            logger.info(
+                f"Using {len(tools)} MCP toolsets for investigation "
+                f"(service: {self.context.service_name})"
+            )
+        else:
+            # Fallback to local tool implementations
+            tools = get_investigation_tools(
+                datadog_client=self.datadog_client,
+                azure_client=self.azure_client,
+                context=self.context,
+            )
+            logger.info(
+                f"Using fallback tools for investigation (service: {self.context.service_name})"
+            )
 
         agent = Agent(
             name=f"investigator_{self.context.service_name}",
@@ -146,9 +184,7 @@ class InvestigatorAgent:
             tools=tools,
         )
 
-        logger.info(
-            f"Created investigator agent for service: {self.context.service_name}"
-        )
+        logger.info(f"Created investigator agent for service: {self.context.service_name}")
 
         return agent
 
@@ -205,14 +241,21 @@ Start by getting the error logs from around the alert time.
 def create_investigator_agent(
     context: InvestigationContext,
     settings: Settings,
+    use_mcp_toolset: bool = True,
 ) -> InvestigatorAgent:
     """Factory function to create an investigator agent.
 
     Args:
         context: The investigation context.
         settings: Application settings.
+        use_mcp_toolset: Whether to use MCPToolset for direct MCP server
+                        integration. Defaults to True.
 
     Returns:
         Configured InvestigatorAgent instance.
     """
-    return InvestigatorAgent(context=context, settings=settings)
+    return InvestigatorAgent(
+        context=context,
+        settings=settings,
+        use_mcp_toolset=use_mcp_toolset,
+    )

@@ -180,10 +180,7 @@ class DatadogMCPClient:
         if self.service_name:
             filters["service"] = self.service_name
 
-        logger.info(
-            f"Fetching metric: {metric_name}, aggregation={aggregation}, "
-            f"filters={filters}"
-        )
+        logger.info(f"Fetching metric: {metric_name}, aggregation={aggregation}, filters={filters}")
 
         # Placeholder implementation
         return {

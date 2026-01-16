@@ -81,9 +81,7 @@ def create_get_logs_tool(datadog_client: DatadogMCPClient, context: Investigatio
     return get_logs
 
 
-def create_get_commits_tool(
-    azure_client: AzureDevOpsMCPClient, context: InvestigationContext
-):
+def create_get_commits_tool(azure_client: AzureDevOpsMCPClient, context: InvestigationContext):
     """Create a scoped get_commits tool for the agent.
 
     Args:
@@ -122,8 +120,7 @@ def create_get_commits_tool(
         start_time = alert_time - timedelta(hours=hours)
 
         logger.info(
-            f"Agent getting commits: repo={context.repo_name}, "
-            f"file={file_path}, lookback={hours}h"
+            f"Agent getting commits: repo={context.repo_name}, file={file_path}, lookback={hours}h"
         )
 
         commits = await azure_client.get_commits(

@@ -124,7 +124,11 @@ async def run_investigation(
     logger.info(f"Running investigation for service: {context.service_name}")
 
     try:
-        agent = create_investigator_agent(context, settings)
+        agent = create_investigator_agent(
+            context,
+            settings,
+            use_mcp_toolset=settings.use_mcp_toolset,
+        )
         result = await agent.investigate()
 
         logger.info(f"Investigation completed for service: {context.service_name}")

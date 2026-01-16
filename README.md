@@ -299,6 +299,95 @@ Add your services to `config/service_registry.json`:
 | `/services/{name}` | POST | Register a service |
 | `/services/{name}` | DELETE | Remove a service |
 
+## 🔌 MCP Integration Architecture
+
+MIRA uses the Model Context Protocol (MCP) to communicate with external services like Azure DevOps and Datadog. This section explains how Google ADK agents integrate with MCP servers.
+
+### How Google ADK Communicates with External MCP Servers
+
+The Google Agent Development Kit (ADK) provides the `MCPToolset` class that enables agents to dynamically load and use tools from external MCP servers. MIRA supports three connection methods:
+
+```
+┌─────────────────────┐
+│   MIRA Application  │
+│   (FastAPI Backend) │
+└──────────┬──────────┘
+           │
+    ┌──────▼──────┐
+    │ Google ADK  │
+    │   Agent     │
+    └──────┬──────┘
+           │
+    ┌──────▼──────┐
+    │ MCPToolset  │
+    └──────┬──────┘
+           │
+    ┌──────┴─────────────────────────────────┐
+    │                                         │
+┌───▼───────────────┐  ┌────────────────┐  ┌─▼──────────────┐
+│ StdioConnection   │  │ HTTP/SSE       │  │ StreamableHTTP │
+│ (Azure DevOps MCP)│  │ Connection     │  │ (GitHub MCP)   │
+└───────────────────┘  │ (Datadog MCP)  │  └────────────────┘
+                       └────────────────┘
+```
+
+### Connection Types
+
+| Connection Type | Use Case | Example |
+|-----------------|----------|---------|
+| `StdioConnectionParams` | Subprocess-based MCP servers | Azure DevOps MCP (Node.js) |
+| `StreamableHTTPConnectionParams` | HTTP-based MCP servers | GitHub Copilot MCP |
+| `SseConnectionParams` | SSE-based MCP servers | Google Cloud services |
+
+### Integration Example
+
+```python
+from google.adk.tools.mcp_tool import MCPToolset, StdioConnectionParams
+from mcp import StdioServerParameters
+
+# Connect to Azure DevOps MCP server
+azure_toolset = MCPToolset(
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            command="npx",
+            args=["-y", "@anthropic/azure-devops-mcp", "my-org"],
+            env={"AZURE_DEVOPS_PAT": "your-pat"},
+        ),
+    ),
+    tool_filter=["repo_search_commits", "repo_list_pull_requests_by_repo_or_project"],
+)
+
+# Create agent with MCP tools
+agent = Agent(
+    name="investigator",
+    model="gemini-2.0-flash",
+    tools=[azure_toolset],
+)
+```
+
+### Configuration
+
+Enable MCP integration in your `.env` file:
+
+```bash
+# Enable MCPToolset for direct MCP server integration
+USE_MCP_TOOLSET=true
+
+# Azure DevOps (for commit and PR analysis)
+AZURE_DEVOPS_PAT=your_pat
+AZURE_DEVOPS_ORGANIZATION=your-org
+
+# Datadog MCP Server (optional HTTP-based)
+DATADOG_MCP_SERVER_URL=http://localhost:3001/mcp
+
+# GitHub (for code search)
+GITHUB_PERSONAL_ACCESS_TOKEN=your_github_pat
+```
+
+### Fallback Mode
+
+If MCP servers are unavailable or `USE_MCP_TOOLSET=false`, MIRA falls back to local tool implementations that use direct API calls.
+
 ## 🧪 Development
 
 ### Running Tests
@@ -328,6 +417,8 @@ mypy src
 ## 📚 References
 
 - [Google Agent Development Kit (ADK)](https://github.com/google/adk-python) - Agent framework
+- [Google ADK MCP Integration](https://cloud.google.com/blog/topics/developers-practitioners/use-google-adk-and-mcp-with-an-external-server) - Using ADK with MCP
+- [Datadog LLM Observability](https://docs.datadoghq.com/llm_observability/instrumentation/sdk/) - LLM monitoring
 - [Datadog MCP Server](https://github.com/shelfio/datadog-mcp) - Datadog integration
 - [Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp) - Azure DevOps integration
 - [FastAPI](https://fastapi.tiangolo.com/) - Web framework
