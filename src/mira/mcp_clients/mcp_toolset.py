@@ -112,26 +112,29 @@ def get_datadog_mcp_toolset(
     settings: Settings,
     service_name: str | None = None,
 ) -> Any:
-    """Create an McpToolset for Datadog MCP server.
+    """Create an McpToolset for Datadog MCP server (shelfio/datadog-mcp).
 
-    Datadog MCP server can be accessed via HTTP using the
-    StreamableHTTPConnectionParams transport. This toolset supports
-    querying logs, metrics, traces, and monitors across multiple services.
+    The Datadog MCP server from github.com/shelfio/datadog-mcp provides
+    comprehensive monitoring capabilities including:
+    - CI/CD Pipeline Management
+    - Service Logs Analysis
+    - Metrics Monitoring
+    - Monitoring & Alerting (Monitors, SLOs)
+    - Service Definitions
+    - Team Management
 
-    When multiple applications/services are running on Datadog, the agent
-    can use the service_name filter or query across all services using
-    the search_logs and query_metrics tools.
+    When multiple applications/services are running on Datadog, use the
+    service_name parameter with get_service_logs to scope queries.
 
     Args:
         settings: Application settings containing Datadog credentials.
-        service_name: Optional service name to scope queries to. If None,
-                     the agent can query across all services.
+        service_name: Optional service name to scope log queries to.
 
     Returns:
         McpToolset configured for Datadog, or None if not configured.
     """
     try:
-        from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
+        from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
         from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
     except ImportError:
         logger.warning(
@@ -147,42 +150,47 @@ def get_datadog_mcp_toolset(
         )
         return None
 
-    # Datadog MCP server URL - prefer settings, fall back to environment variable
-    mcp_server_url = (
-        settings.datadog_mcp_server_url
-        or os.getenv("DATADOG_MCP_SERVER_URL")
-        or "http://localhost:3001/mcp"
+    # Datadog MCP server runs as a Python uvx process (shelfio/datadog-mcp)
+    # See: https://github.com/shelfio/datadog-mcp
+    server_params = StdioServerParameters(
+        command="uvx",
+        args=[
+            "--from",
+            "git+https://github.com/shelfio/datadog-mcp.git",
+            "datadog-mcp",
+        ],
+        env={
+            "DD_API_KEY": settings.datadog_api_key,
+            "DD_APP_KEY": settings.datadog_app_key,
+            "DD_SITE": settings.datadog_site,
+            "PATH": os.environ.get("PATH", ""),
+        },
     )
 
     try:
         toolset = McpToolset(
-            connection_params=StreamableHTTPConnectionParams(
-                url=mcp_server_url,
-                headers={
-                    "DD-API-KEY": settings.datadog_api_key,
-                    "DD-APPLICATION-KEY": settings.datadog_app_key,
-                },
-            ),
-            # Include comprehensive Datadog tools for observability
+            connection_params=StdioConnectionParams(server_params=server_params),
+            # Tools available in shelfio/datadog-mcp
+            # See: https://github.com/shelfio/datadog-mcp#tools
             tool_filter=[
-                # Log management
-                "search_logs",
-                "get_logs",
-                "list_log_indexes",
-                # Metrics
-                "query_metrics",
+                # Service Logs - for incident investigation
+                "get_service_logs",
+                # Metrics - for performance analysis
                 "list_metrics",
-                # APM Traces
-                "search_traces",
-                "get_trace",
-                "list_services",
-                # Monitors and Alerts
+                "get_metrics",
+                "get_metric_fields",
+                "get_metric_field_values",
+                # Monitors and SLOs - for alerting context
                 "list_monitors",
-                "get_monitor",
-                "get_monitor_state",
-                # Events
-                "list_events",
-                "get_event",
+                "list_slos",
+                # Service Definitions - for service metadata
+                "list_service_definitions",
+                "get_service_definition",
+                # CI/CD Pipelines - for deployment correlation
+                "list_ci_pipelines",
+                "get_pipeline_fingerprints",
+                # Teams - for ownership information
+                "get_teams",
             ],
         )
         logger.info(

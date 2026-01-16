@@ -378,8 +378,10 @@ USE_MCP_TOOLSET=true
 AZURE_DEVOPS_PAT=your_pat
 AZURE_DEVOPS_ORGANIZATION=your-org
 
-# Datadog MCP Server (for logs, traces, and metrics)
-DATADOG_MCP_SERVER_URL=http://localhost:3001/mcp
+# Datadog credentials (used by shelfio/datadog-mcp server)
+DATADOG_API_KEY=your_api_key
+DATADOG_APP_KEY=your_app_key
+DATADOG_SITE=datadoghq.com  # or datadoghq.eu for EU
 
 # GitHub (for code search)
 GITHUB_PERSONAL_ACCESS_TOKEN=your_github_pat
@@ -392,12 +394,27 @@ GOOGLE_SPACE_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/...
 AUTO_CREATE_TICKETS=true
 ```
 
+### Datadog MCP Integration
+
+MIRA uses the [shelfio/datadog-mcp](https://github.com/shelfio/datadog-mcp) server for Datadog integration. Available tools:
+
+| Tool | Description |
+|------|-------------|
+| `get_service_logs` | Retrieve service logs with time range and log level filtering |
+| `get_metrics` | Query any Datadog metric with aggregation and filtering |
+| `list_metrics` | List all available metrics for discovery |
+| `list_monitors` | List Datadog monitors with filtering |
+| `list_slos` | List Service Level Objectives |
+| `get_service_definition` | Get service metadata and ownership |
+| `list_ci_pipelines` | List CI/CD pipelines for deployment correlation |
+| `get_teams` | Get team information and members |
+
 ### Multi-Service Support
 
 MIRA supports environments with multiple applications and services running on Datadog. The agent workflow handles this by:
 
-1. **Service-scoped queries**: When an alert triggers for a specific service, the agent focuses on that service's logs and traces
-2. **Cross-service analysis**: The agent can query related services if needed to understand dependencies
+1. **Service-scoped queries**: When an alert triggers for a specific service, the agent uses `get_service_logs` with the service name
+2. **Cross-service analysis**: The agent can query related services using `list_service_definitions` to understand dependencies
 3. **Service registry mapping**: Each service maps to its repository in Azure DevOps via the service registry
 
 ### Complete Investigation Workflow

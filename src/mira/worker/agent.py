@@ -55,17 +55,24 @@ Your goal is to:
 ## Investigation Guidelines
 
 ### Step 1: Gather Observability Data from Datadog
-Use the available Datadog tools to collect:
-- **Error Logs**: Search for error logs around the alert time using search_logs or get_logs
-- **APM Traces**: Look for failed traces using search_traces to understand request flow
-- **Metrics**: Query relevant metrics (error rate, latency, CPU, memory) using query_metrics
-- **Monitor State**: Check the monitor that triggered the alert using get_monitor
+Use the available Datadog MCP tools (from shelfio/datadog-mcp) to collect:
+- **Service Logs**: Use `get_service_logs` with service_name="{service_name}" and time_range="1h" or "4h"
+  - Filter by log_level="ERROR" to find errors around the alert time
+  - Use format="table" or "summary" for readable output
+- **Metrics**: Use `get_metrics` to query relevant metrics (error rate, latency, CPU, memory)
+  - Use `list_metrics` to discover available metrics
+  - Use `get_metric_fields` to see available filter dimensions
+- **Monitors**: Use `list_monitors` to see monitor states and context
+- **SLOs**: Use `list_slos` to check if SLOs are being violated
+- **Service Definition**: Use `get_service_definition` to get service metadata and ownership
+- **CI/CD Pipelines**: Use `list_ci_pipelines` to check recent deployments
 
 ### Step 2: Correlate with Code Changes
 Once you identify suspicious errors:
 - Use repo_search_commits to find recent commits to affected files
 - Look for commits that occurred shortly before errors started
 - Check repo_list_pull_requests_by_repo_or_project for recently merged PRs
+- Use list_ci_pipelines to correlate with recent deployments
 
 ### Step 3: Analyze and Determine Root Cause
 Based on the collected data:
@@ -77,7 +84,7 @@ Based on the collected data:
 Use work_create_work_item to create a ticket with:
 - Title: Clear description of the incident
 - Description: Include RCA summary, evidence, and recommended action
-- Assign to the owner team
+- Assign to the owner team (use get_teams to find team info)
 
 ### Step 5: Notify the Team
 Use the notification tools (notify_teams or notify_google_space) to:
