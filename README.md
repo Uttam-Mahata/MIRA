@@ -8,35 +8,33 @@
 
 An automated incident investigation system designed to reduce Mean Time To Recovery (MTTR) for microservices ecosystems. MIRA uses **Google Agent Development Kit (ADK)** for intelligent agents and integrates with **Datadog** and **Azure DevOps** via the **Model Context Protocol (MCP)**.
 
-## 📖 Architecture & Approaches
+## 📖 Integration Strategies
 
-MIRA supports two primary architectural patterns for incident response.
+MIRA demonstrates two powerful ways to integrate external tools using MCP.
 
-### Approach 1: Event-Driven Dispatcher (Recommended)
+### Approach 1: Official Vendor MCP Servers (Off-the-Shelf)
 
-This is the default and implemented architecture. It optimizes for cost and scalability by spawning agents *only* when an incident occurs.
+This strategy involves using pre-built MCP servers provided by vendors or the open-source community.
 
-![Approach 1: Event-Driven Dispatcher Architecture](approach1.png)
+![Approach 1: Vendor MCP Architecture](approach1.png)
 
-**Workflow:**
-1.  **Trigger:** Datadog Monitor fires a Webhook to the **Dispatcher Service**.
-2.  **Routing:** Dispatcher looks up service metadata (Repo, Team, Config) in the **Service Registry**.
-3.  **Instantiation:** Dispatcher spawns an **Ephemeral Worker Agent** (Google ADK) scoped *strictly* to the impacting service.
-4.  **Investigation:**
-    *   The Agent connects to the **Datadog MCP Server** (local Python process using `fastmcp` + `datadog-api-client`) to fetch logs and metrics.
-    *   The Agent connects to the **Azure DevOps MCP Server** (local Node.js process) to fetch commits and pull requests.
-5.  **Resolution:** The Agent generates a Root Cause Analysis (RCA) report and posts it to the **Incident Channel** (Slack/Teams). If high confidence, it creates a **Bug Ticket** in Azure DevOps.
+*   **Implementation:** MIRA uses the official **Azure DevOps MCP Server** (Node.js) provided by Microsoft.
+*   **How it works:** The ADK agent spawns the Node.js server (`npx` or local build) and communicates via Stdio.
+*   **Pros:** Zero code to maintain for tool definitions; always up-to-date with vendor APIs.
+*   **Cons:** Tools are generic and might not have specific safeguards (e.g., service-scoped filtering).
 
-### Approach 2: Polling Agent (Alternative)
+### Approach 2: Custom MCP Servers (FastMCP)
 
-A traditional architecture where a long-running agent periodically checks for issues.
+This strategy involves building **bespoke MCP servers** using Python SDKs wrapped with `fastmcp`.
 
-![Approach 2: Polling Agent Architecture](approach2.png)
+![Approach 2: Custom FastMCP Architecture](approach2.png)
 
-**Characteristics:**
-*   **Pro:** Can detect issues that don't trigger explicit alerts (e.g., subtle drift).
-*   **Con:** High API cost and rate limits when scaling to 100+ services.
-*   **Status:** Not currently implemented in the main branch, but supported by the underlying ADK framework.
+*   **Implementation:** MIRA includes a custom **Datadog MCP Server** (`src/mira/mcp_clients/datadog_client.py`).
+*   **How it works:** We wrap the official `datadog-api-client` with `fastmcp` decorators.
+*   **Pros:**
+    *   **Safety:** We enforce `service:{name}` filtering at the code level.
+    *   **Simplicity:** We expose only the specific tools the agent needs (`dd_get_logs`, `dd_get_metrics`).
+    *   **Control:** We can implement custom logic (e.g., aggregation) before returning data to the LLM.
 
 ---
 
@@ -60,7 +58,7 @@ cd MIRA
 # Install Python dependencies (including ddtrace for LLM Observability)
 pip install -e ".[dev]"
 
-# Build the Azure DevOps MCP server
+# Build the Azure DevOps MCP server (Approach 1)
 cd azure-devops-mcp
 npm install && npm run build
 cd ..
@@ -104,9 +102,9 @@ MIRA/
 │   │   ├── agent.py     # Agent logic with @workflow/@agent tracing
 │   │   └── tools.py     # Tool definitions
 │   ├── mcp_clients/     # MCP Servers & Clients
-│   │   ├── datadog_client.py    # Local Datadog MCP Server (FastMCP)
+│   │   ├── datadog_client.py    # Approach 2: Custom Datadog MCP (FastMCP)
 │   └── utils/
-├── azure-devops-mcp/    # Azure DevOps MCP Server (Node.js)
+├── azure-devops-mcp/    # Approach 1: Official Azure DevOps MCP (Node.js)
 ├── config/
 │   └── service_registry.json  # Service mapping
 ├── Dockerfile           # Multi-stage build (Python + Node.js)
