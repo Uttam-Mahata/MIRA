@@ -157,4 +157,5 @@ To enable, set `DD_LLMOBS_ENABLED=1` and ensure `ddtrace` is installed.
 - [Google Agent Development Kit (ADK)](https://github.com/google/adk-python)
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
 - [FastMCP](https://github.com/jlowin/fastmcp)
-- [Datadog API Client](https://github.com/DataDog/datadog-api-client-python)
+- [Datadog Monitors API](https://docs.datadoghq.com/api/latest/monitors/)
+- [Azure DevOps Python API](https://github.com/microsoft/azure-devops-python-api)
