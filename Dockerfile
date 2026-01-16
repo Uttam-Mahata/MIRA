@@ -1,7 +1,8 @@
 # MIRA - Microservice Incident Response Agent
 # Dockerfile for containerized deployment
 
-FROM python:3.11-slim as builder
+# --- Stage 1: Build Python Dependencies ---
+FROM python:3.11-slim as python-builder
 
 WORKDIR /app
 
@@ -18,17 +19,43 @@ COPY pyproject.toml .
 COPY README.md .
 COPY src/ src/
 
-# Install dependencies
+# Install python dependencies
 RUN uv pip install --system --no-cache .
 
-# Production stage
+# --- Stage 2: Build Azure DevOps MCP (Node.js) ---
+FROM node:20-slim as node-builder
+
+WORKDIR /app/azure-devops-mcp
+
+# Copy Azure DevOps MCP source
+COPY azure-devops-mcp/ .
+
+# Install dependencies and build
+RUN npm install
+RUN npm run build
+# Prune dev dependencies for production
+RUN npm prune --production
+
+# --- Stage 3: Production Image ---
 FROM python:3.11-slim as production
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Install Node.js runtime (required for Azure DevOps MCP)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from python-builder
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
+
+# Copy built Azure DevOps MCP from node-builder
+COPY --from=node-builder /app/azure-devops-mcp /app/azure-devops-mcp
 
 # Copy application code
 COPY src/ src/

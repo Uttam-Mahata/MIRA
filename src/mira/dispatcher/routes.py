@@ -7,9 +7,11 @@ Includes the webhook endpoint for Datadog alerts and management endpoints.
 import hashlib
 import hmac
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from pydantic import BaseModel
 
@@ -47,7 +49,8 @@ class InvestigationResult(BaseModel):
     status: str
     service: str
     alert_type: str
-    rca: dict[str, Any]
+    rca_report: str | None = None
+    error: str | None = None
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -108,6 +111,50 @@ def verify_webhook_signature(
     return hmac.compare_digest(f"sha256={expected}", signature)
 
 
+async def send_notification(
+    service_name: str,
+    alert_title: str,
+    rca_report: str,
+    webhook_url: str | None = None,
+) -> None:
+    """Send a notification with the RCA report to a webhook.
+
+    Supports generic webhooks (Google Chat, Microsoft Teams, Slack).
+
+    Args:
+        service_name: The name of the service.
+        alert_title: The title of the alert.
+        rca_report: The Markdown RCA report.
+        webhook_url: The webhook URL to send to. If None, checks env var.
+    """
+    url = webhook_url or os.getenv("NOTIFICATION_WEBHOOK_URL")
+    if not url:
+        logger.warning("No notification webhook URL configured. Skipping notification.")
+        return
+
+    logger.info(f"Sending notification for {service_name} to {url}")
+
+    # Basic payload format suitable for most webhooks (Google Chat, Slack)
+    payload = {
+        "text": f"*MIRA Investigation Report*\n\n**Service:** {service_name}\n**Alert:** {alert_title}\n\n{rca_report}"
+    }
+
+    # If it's a Microsoft Teams webhook, the format is slightly different
+    if "outlook.office.com" in url or "webhook.office.com" in url:
+        payload = {
+            "title": f"MIRA Investigation: {service_name}",
+            "text": f"**Alert:** {alert_title}\n\n{rca_report}",
+        }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=10.0)
+            response.raise_for_status()
+            logger.info("Notification sent successfully")
+    except Exception as e:
+        logger.error(f"Failed to send notification: {e}")
+
+
 async def run_investigation(
     context: InvestigationContext,
     settings: Settings,
@@ -129,11 +176,22 @@ async def run_investigation(
 
         logger.info(f"Investigation completed for service: {context.service_name}")
 
+        rca_report = result.get("rca_report")
+
+        # Send notification if RCA is available
+        if rca_report:
+            await send_notification(
+                service_name=context.service_name,
+                alert_title=context.alert_title,
+                rca_report=rca_report,
+                webhook_url=context.alert_channel, # Use channel from registry if available
+            )
+
         return InvestigationResult(
             status=result.get("status", "completed"),
             service=context.service_name,
             alert_type=context.alert_type,
-            rca=result.get("rca", {}),
+            rca_report=rca_report,
         )
 
     except Exception as e:
@@ -142,11 +200,7 @@ async def run_investigation(
             status="failed",
             service=context.service_name,
             alert_type=context.alert_type,
-            rca={
-                "summary": f"Investigation failed: {str(e)}",
-                "confidence": "N/A",
-                "error": str(e),
-            },
+            error=str(e),
         )
 
 

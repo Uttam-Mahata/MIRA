@@ -32,6 +32,9 @@ dependencies = [
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",
     "mcp>=1.0.0",
+    "ddtrace>=2.0.0",
+    "fastmcp>=0.4.1",
+    "datadog-api-client>=2.0.0",
 ]
 
 [project.optional-dependencies]
