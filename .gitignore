@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+datadog-api-client-python/
+
+adk-samples/
+azure-devops-mcp/
+

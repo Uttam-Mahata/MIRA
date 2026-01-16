@@ -1,215 +1,189 @@
 """
-Datadog MCP Client for retrieving logs and metrics.
+Datadog MCP Server for retrieving logs and metrics.
 
-This client wraps the Datadog MCP server tools to provide a scoped interface
-for investigating incidents. The client filters all requests to a specific service.
+This module implements an MCP server using FastMCP and the official Datadog API client.
+It provides tools for Worker Agents to investigate microservices.
 """
 
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from pydantic import BaseModel
+from datadog_api_client import ApiClient, Configuration
+from datadog_api_client.v2.api.logs_api import LogsApi
+from datadog_api_client.v2.api.metrics_api import MetricsApi
+from datadog_api_client.v2.api.monitors_api import MonitorsApi
+from datadog_api_client.v2.model.logs_list_request import LogsListRequest
+from datadog_api_client.v2.model.logs_list_request_page import LogsListRequestPage
+from datadog_api_client.v2.model.logs_query_filter import LogsListRequestFilter
+from datadog_api_client.v2.model.logs_sort import LogsSort
+from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
-
-class LogEntry(BaseModel):
-    """Represents a single log entry from Datadog."""
-
-    timestamp: str
-    message: str
-    service: str
-    status: str
-    host: str | None = None
-    attributes: dict[str, Any] = {}
+# Initialize FastMCP
+mcp = FastMCP("datadog")
 
 
-class DatadogMCPClient:
-    """Client for interacting with Datadog via MCP.
+def get_datadog_client() -> ApiClient:
+    """Create and configure the Datadog API client."""
+    configuration = Configuration()
+    configuration.api_key["apiKeyAuth"] = os.getenv("DATADOG_API_KEY")
+    configuration.api_key["appKeyAuth"] = os.getenv("DATADOG_APP_KEY")
+    configuration.server_variables["site"] = os.getenv("DATADOG_SITE", "datadoghq.com")
+    return ApiClient(configuration)
 
-    This client provides scoped access to Datadog logs and metrics,
-    filtered by service name. It's designed to be used by Worker Agents
-    during incident investigation.
+
+@mcp.tool()
+async def dd_get_logs(
+    service: str,
+    query: str = "",
+    status: str = "error",
+    lookback_minutes: int = 30,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Retrieve logs from Datadog for a specific service.
+
+    Args:
+        service: The service name to filter by.
+        query: Additional search query.
+        status: Filter by log status (error, warn, info).
+        lookback_minutes: How many minutes to look back.
+        limit: Maximum number of logs to return.
     """
-
-    def __init__(
-        self,
-        api_key: str,
-        app_key: str,
-        site: str = "datadoghq.com",
-        service_name: str | None = None,
-    ) -> None:
-        """Initialize the Datadog MCP client.
-
-        Args:
-            api_key: Datadog API key.
-            app_key: Datadog Application key.
-            site: Datadog site (e.g., datadoghq.com, datadoghq.eu).
-            service_name: Optional service name to scope all queries to.
-        """
-        self.api_key = api_key
-        self.app_key = app_key
-        self.site = site
-        self.service_name = service_name
-        self._base_url = f"https://api.{site}"
-
-        logger.info(
-            f"Initialized Datadog MCP client for site: {site}"
-            + (f", service: {service_name}" if service_name else "")
-        )
-
-    def with_service(self, service_name: str) -> "DatadogMCPClient":
-        """Create a new client scoped to a specific service.
-
-        Args:
-            service_name: The service name to scope queries to.
-
-        Returns:
-            A new DatadogMCPClient instance scoped to the service.
-        """
-        return DatadogMCPClient(
-            api_key=self.api_key,
-            app_key=self.app_key,
-            site=self.site,
-            service_name=service_name,
-        )
-
-    async def get_logs(
-        self,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        status: str | None = None,
-        query: str | None = None,
-        limit: int = 100,
-    ) -> list[LogEntry]:
-        """Retrieve logs from Datadog.
-
-        Args:
-            start_time: Start of the time range. Defaults to 1 hour ago.
-            end_time: End of the time range. Defaults to now.
-            status: Filter by log status (e.g., 'error', 'warn', 'info').
-            query: Additional search query.
-            limit: Maximum number of logs to return.
-
-        Returns:
-            List of log entries.
-        """
-        if not start_time:
-            start_time = datetime.now(UTC) - timedelta(hours=1)
-        if not end_time:
-            end_time = datetime.now(UTC)
-
-        # Build the query
-        query_parts = []
-
-        if self.service_name:
-            query_parts.append(f"service:{self.service_name}")
-
+    with get_datadog_client() as api_client:
+        api_instance = LogsApi(api_client)
+        
+        # Build query
+        filter_parts = [f"service:{service}"]
         if status:
-            query_parts.append(f"status:{status}")
-
+            filter_parts.append(f"status:{status}")
         if query:
-            query_parts.append(query)
-
-        full_query = " ".join(query_parts) if query_parts else "*"
-
-        logger.info(
-            f"Fetching logs: query='{full_query}', "
-            f"from={start_time.isoformat()}, to={end_time.isoformat()}"
+            filter_parts.append(query)
+        
+        full_query = " ".join(filter_parts)
+        
+        start_time = datetime.now(UTC) - timedelta(minutes=lookback_minutes)
+        
+        body = LogsListRequest(
+            filter=LogsListRequestFilter(
+                query=full_query,
+                _from=start_time.isoformat(),
+                to=datetime.now(UTC).isoformat(),
+            ),
+            sort=LogsSort.TIMESTAMP_DESCENDING,
+            page=LogsListRequestPage(limit=limit),
         )
 
-        # In a real implementation, this would call the Datadog MCP server
-        # For now, return a placeholder that shows the query structure
-        return [
-            LogEntry(
-                timestamp=datetime.now(UTC).isoformat(),
-                message=f"[Placeholder] Query executed: {full_query}",
-                service=self.service_name or "unknown",
-                status="info",
+        try:
+            response = api_instance.list_logs(body=body)
+            logs = []
+            for log in response.data:
+                attr = log.attributes
+                logs.append({
+                    "timestamp": attr.timestamp.isoformat() if attr.timestamp else None,
+                    "message": attr.message,
+                    "status": attr.status,
+                    "service": attr.service,
+                    "host": attr.host,
+                })
+            
+            return {
+                "status": "success",
+                "query": full_query,
+                "count": len(logs),
+                "logs": logs
+            }
+        except Exception as e:
+            logger.error(f"Error fetching logs: {e}")
+            return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
+async def dd_get_metrics(
+    metric_name: str,
+    service: str,
+    lookback_minutes: int = 60,
+) -> dict[str, Any]:
+    """Query metrics from Datadog for a specific service.
+
+    Args:
+        metric_name: The name of the metric (e.g. system.cpu.user).
+        service: The service name to filter by.
+        lookback_minutes: How many minutes of data to retrieve.
+    """
+    with get_datadog_client() as api_client:
+        api_instance = MetricsApi(api_client)
+        
+        start_time = int((datetime.now(UTC) - timedelta(minutes=lookback_minutes)).timestamp())
+        end_time = int(datetime.now(UTC).timestamp())
+        
+        query = f"{metric_name}{{service:{service}}}.avg()"
+        
+        try:
+            # Note: Metrics query API might differ slightly in implementation details
+            # depending on whether it's V1 or V2. V2 uses query_scalar_data or similar.
+            # This is a simplified representation.
+            response = api_instance.query_scalar_data(
+                _from=start_time,
+                to=end_time,
+                query=query
             )
-        ]
+            return {
+                "status": "success",
+                "metric": metric_name,
+                "query": query,
+                "data": str(response.data) if hasattr(response, 'data') else "No data returned"
+            }
+        except Exception as e:
+            logger.error(f"Error fetching metrics: {e}")
+            return {"status": "error", "message": str(e)}
 
-    async def get_error_logs(
-        self,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        limit: int = 50,
-    ) -> list[LogEntry]:
-        """Convenience method to get only error logs.
 
-        Args:
-            start_time: Start of the time range.
-            end_time: End of the time range.
-            limit: Maximum number of logs to return.
+@mcp.tool()
+async def dd_list_monitors(
+    service: str,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """List Datadog monitors filtered by service.
 
-        Returns:
-            List of error log entries.
-        """
-        return await self.get_logs(
-            start_time=start_time,
-            end_time=end_time,
-            status="error",
-            limit=limit,
-        )
+    Args:
+        service: The service name to filter by (via tags).
+        status: Optional monitor status (Alert, OK, Warn).
+    """
+    with get_datadog_client() as api_client:
+        api_instance = MonitorsApi(api_client)
+        
+        tags = f"service:{service}"
+        
+        try:
+            # Monitors API is typically V1 in the official client for listing
+            # But we'll try to use the configured instance
+            monitors = api_instance.list_monitors(monitor_tags=tags)
+            
+            result = []
+            for m in monitors:
+                if status and m.overall_state != status:
+                    continue
+                result.append({
+                    "id": m.id,
+                    "name": m.name,
+                    "state": m.overall_state,
+                    "type": m.type,
+                })
+            
+            return {
+                "status": "success",
+                "service": service,
+                "count": len(result),
+                "monitors": result
+            }
+        except Exception as e:
+            logger.error(f"Error listing monitors: {e}")
+            return {"status": "error", "message": str(e)}
 
-    async def get_metrics(
-        self,
-        metric_name: str,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        aggregation: str = "avg",
-    ) -> dict[str, Any]:
-        """Query metrics from Datadog.
 
-        Args:
-            metric_name: Name of the metric to query.
-            start_time: Start of the time range.
-            end_time: End of the time range.
-            aggregation: Aggregation method (avg, sum, min, max, count).
-
-        Returns:
-            Metric data with timestamps and values.
-        """
-        if not start_time:
-            start_time = datetime.now(UTC) - timedelta(hours=1)
-        if not end_time:
-            end_time = datetime.now(UTC)
-
-        filters = {}
-        if self.service_name:
-            filters["service"] = self.service_name
-
-        logger.info(
-            f"Fetching metric: {metric_name}, aggregation={aggregation}, "
-            f"filters={filters}"
-        )
-
-        # Placeholder implementation
-        return {
-            "metric": metric_name,
-            "aggregation": aggregation,
-            "service": self.service_name,
-            "from": start_time.isoformat(),
-            "to": end_time.isoformat(),
-            "data": [],
-        }
-
-    async def get_monitors(
-        self,
-        status: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Get Datadog monitors, optionally filtered by status.
-
-        Args:
-            status: Filter by monitor status (e.g., 'Alert', 'OK', 'Warn').
-
-        Returns:
-            List of monitors.
-        """
-        tags = f"service:{self.service_name}" if self.service_name else ""
-
-        logger.info(f"Fetching monitors with tags: {tags}, status: {status}")
-
-        # Placeholder implementation
-        return []
+if __name__ == "__main__":
+    # Start the MCP server
+    mcp.run()

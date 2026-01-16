@@ -73,6 +73,16 @@ class Settings(BaseSettings):
         description="LLM model to use for agents",
     )
 
+    # MCP Configuration
+    azure_mcp_path: str = Field(
+        default="azure-devops-mcp/dist/index.js",
+        description="Path to Azure DevOps MCP server entry point",
+    )
+    datadog_mcp_url: str = Field(
+        default="http://localhost:8080/sse",
+        description="URL for Datadog MCP server (SSE)",
+    )
+
     # Service Registry settings
     service_registry_path: str = Field(
         default="config/service_registry.json",

@@ -7,6 +7,7 @@ Service Registry, and instantiates Worker Agents for investigation.
 """
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -35,6 +36,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Loading service registry from: {settings.service_registry_path}")
     app.state.service_registry = ServiceRegistry(settings.service_registry_path)
     app.state.settings = settings
+
+    # Verify MCP paths
+    azure_mcp_path = os.path.abspath(settings.azure_mcp_path)
+    if not os.path.exists(azure_mcp_path):
+        logger.warning(
+            f"Azure DevOps MCP script not found at: {azure_mcp_path}. "
+            "Agent investigations involving Azure DevOps may fail."
+        )
+    else:
+        logger.info(f"Found Azure DevOps MCP script at: {azure_mcp_path}")
+
+    # Verify Datadog MCP path (for local Python client)
+    # Assuming it's in src/mira/mcp_clients/datadog_client.py relative to root
+    datadog_client_path = os.path.abspath("src/mira/mcp_clients/datadog_client.py")
+    if not os.path.exists(datadog_client_path):
+        logger.warning(
+            f"Datadog MCP client script not found at: {datadog_client_path}. "
+            "Agent investigations involving Datadog may fail."
+        )
+    else:
+        logger.info(f"Found Datadog MCP client script at: {datadog_client_path}")
 
     logger.info(
         f"MIRA Dispatcher starting in {settings.environment} mode"
