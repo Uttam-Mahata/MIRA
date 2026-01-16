@@ -132,7 +132,7 @@ class InvestigatorAgent:
         self.settings = settings
         self.use_mcp_toolset = use_mcp_toolset
         self._agent: Agent | None = None
-        # McpToolset is dynamically imported to avoid import errors when not available
+        # MCP tools list - populated by get_investigation_mcp_tools which handles dynamic imports
         self._mcp_tools: list[Any] = []
 
         # Try to load MCP toolsets if enabled

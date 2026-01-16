@@ -82,9 +82,12 @@ class Settings(BaseSettings):
         default=None,
         description="Datadog MCP server URL for HTTP-based integration",
     )
+    # Note: GitHub token is read from GITHUB_PERSONAL_ACCESS_TOKEN env var in mcp_toolset.py
+    # This setting is kept for configuration visibility but should not be logged
     github_personal_access_token: str | None = Field(
         default=None,
-        description="GitHub Personal Access Token for GitHub MCP integration",
+        description="GitHub PAT for GitHub MCP integration (sensitive - use env var)",
+        json_schema_extra={"writeOnly": True},
     )
 
     # Service Registry settings

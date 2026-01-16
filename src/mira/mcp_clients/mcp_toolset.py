@@ -193,7 +193,6 @@ def get_datadog_mcp_toolset(
     except Exception as e:
         logger.error(f"Failed to create Datadog McpToolset: {e}")
         return None
-        return None
 
 
 def get_github_mcp_toolset() -> Any:
