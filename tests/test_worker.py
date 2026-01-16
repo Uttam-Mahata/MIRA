@@ -1,6 +1,5 @@
 """Tests for the Worker Agent and tools."""
 
-
 import pytest
 
 from mira.config.settings import Settings

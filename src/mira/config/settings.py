@@ -73,6 +73,23 @@ class Settings(BaseSettings):
         description="LLM model to use for agents",
     )
 
+    # MCP Integration settings
+    use_mcp_toolset: bool = Field(
+        default=True,
+        description="Use MCPToolset for direct MCP server integration",
+    )
+    datadog_mcp_server_url: str | None = Field(
+        default=None,
+        description="Datadog MCP server URL for HTTP-based integration",
+    )
+    # Note: GitHub token is read from GITHUB_PERSONAL_ACCESS_TOKEN env var in mcp_toolset.py
+    # This setting is kept for configuration visibility but should not be logged
+    github_personal_access_token: str | None = Field(
+        default=None,
+        description="GitHub PAT for GitHub MCP integration (sensitive - use env var)",
+        json_schema_extra={"writeOnly": True},
+    )
+
     # Service Registry settings
     service_registry_path: str = Field(
         default="config/service_registry.json",
@@ -83,6 +100,26 @@ class Settings(BaseSettings):
     webhook_secret: str | None = Field(
         default=None,
         description="Secret for validating webhook signatures",
+    )
+
+    # Notification settings
+    teams_webhook_url: str | None = Field(
+        default=None,
+        description="Microsoft Teams incoming webhook URL for notifications",
+    )
+    google_space_webhook_url: str | None = Field(
+        default=None,
+        description="Google Chat Space webhook URL for notifications",
+    )
+
+    # Ticket creation settings
+    auto_create_tickets: bool = Field(
+        default=True,
+        description="Automatically create Azure DevOps work items for incidents",
+    )
+    default_work_item_type: str = Field(
+        default="Bug",
+        description="Default work item type for incident tickets (Bug, Task, Issue)",
     )
 
 

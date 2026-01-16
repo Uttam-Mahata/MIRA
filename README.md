@@ -299,6 +299,151 @@ Add your services to `config/service_registry.json`:
 | `/services/{name}` | POST | Register a service |
 | `/services/{name}` | DELETE | Remove a service |
 
+## 🔌 MCP Integration Architecture
+
+MIRA uses the Model Context Protocol (MCP) to communicate with external services like Azure DevOps and Datadog. This section explains how Google ADK agents integrate with MCP servers.
+
+### How Google ADK Communicates with External MCP Servers
+
+The Google Agent Development Kit (ADK) provides the `MCPToolset` class that enables agents to dynamically load and use tools from external MCP servers. MIRA supports three connection methods:
+
+```
+┌─────────────────────┐
+│   MIRA Application  │
+│   (FastAPI Backend) │
+└──────────┬──────────┘
+           │
+    ┌──────▼──────┐
+    │ Google ADK  │
+    │   Agent     │
+    └──────┬──────┘
+           │
+    ┌──────▼──────┐
+    │ MCPToolset  │
+    └──────┬──────┘
+           │
+    ┌──────┴─────────────────────────────────┐
+    │                                         │
+┌───▼───────────────┐  ┌────────────────┐  ┌─▼──────────────┐
+│ StdioConnection   │  │ HTTP/SSE       │  │ StreamableHTTP │
+│ (Azure DevOps MCP)│  │ Connection     │  │ (GitHub MCP)   │
+└───────────────────┘  │ (Datadog MCP)  │  └────────────────┘
+                       └────────────────┘
+```
+
+### Connection Types
+
+| Connection Type | Use Case | Example |
+|-----------------|----------|---------|
+| `StdioConnectionParams` | Subprocess-based MCP servers | Azure DevOps MCP (Node.js) |
+| `StreamableHTTPConnectionParams` | HTTP-based MCP servers | GitHub Copilot MCP |
+| `SseConnectionParams` | SSE-based MCP servers | Google Cloud services |
+
+### Integration Example
+
+```python
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
+from mcp import StdioServerParameters
+
+# Connect to Azure DevOps MCP server
+azure_toolset = McpToolset(
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            command="npx",
+            args=["-y", "@anthropic/azure-devops-mcp", "my-org"],
+            env={"AZURE_DEVOPS_PAT": "your-pat"},
+        ),
+    ),
+    tool_filter=["repo_search_commits", "repo_list_pull_requests_by_repo_or_project"],
+)
+
+# Create agent with MCP tools
+agent = Agent(
+    name="investigator",
+    model="gemini-2.0-flash",
+    tools=[azure_toolset],
+)
+```
+
+### Configuration
+
+Enable MCP integration in your `.env` file:
+
+```bash
+# Enable MCPToolset for direct MCP server integration
+USE_MCP_TOOLSET=true
+
+# Azure DevOps (for commit, PR analysis, and ticket creation)
+AZURE_DEVOPS_PAT=your_pat
+AZURE_DEVOPS_ORGANIZATION=your-org
+
+# Datadog credentials (used by shelfio/datadog-mcp server)
+DATADOG_API_KEY=your_api_key
+DATADOG_APP_KEY=your_app_key
+DATADOG_SITE=datadoghq.com  # or datadoghq.eu for EU
+
+# GitHub (for code search)
+GITHUB_PERSONAL_ACCESS_TOKEN=your_github_pat
+
+# Notifications (optional)
+TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/...
+GOOGLE_SPACE_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/...
+
+# Ticket creation
+AUTO_CREATE_TICKETS=true
+```
+
+### Datadog MCP Integration
+
+MIRA uses the [shelfio/datadog-mcp](https://github.com/shelfio/datadog-mcp) server for Datadog integration. Available tools:
+
+| Tool | Description |
+|------|-------------|
+| `get_service_logs` | Retrieve service logs with time range and log level filtering |
+| `get_metrics` | Query any Datadog metric with aggregation and filtering |
+| `list_metrics` | List all available metrics for discovery |
+| `list_monitors` | List Datadog monitors with filtering |
+| `list_slos` | List Service Level Objectives |
+| `get_service_definition` | Get service metadata and ownership |
+| `list_ci_pipelines` | List CI/CD pipelines for deployment correlation |
+| `get_teams` | Get team information and members |
+
+### Multi-Service Support
+
+MIRA supports environments with multiple applications and services running on Datadog. The agent workflow handles this by:
+
+1. **Service-scoped queries**: When an alert triggers for a specific service, the agent uses `get_service_logs` with the service name
+2. **Cross-service analysis**: The agent can query related services using `list_service_definitions` to understand dependencies
+3. **Service registry mapping**: Each service maps to its repository in Azure DevOps via the service registry
+
+### Complete Investigation Workflow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Datadog Alert   │────▶│  MIRA Agent     │────▶│ Azure DevOps    │
+│ (Webhook)       │     │  (Gemini LLM)   │     │ Work Item       │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+              ┌─────▼─────┐           ┌──────▼──────┐
+              │  Teams    │           │ Google Space │
+              │  Notify   │           │   Notify     │
+              └───────────┘           └──────────────┘
+```
+
+1. **Datadog** triggers a webhook when a monitor fires
+2. **MIRA** receives the alert and creates an investigation agent
+3. **Agent** queries Datadog for logs, traces, and metrics
+4. **Gemini** analyzes the data and correlates with code changes
+5. **Agent** creates an Azure DevOps work item with RCA
+6. **Agent** notifies the team via Teams/Google Space
+
+### Fallback Mode
+
+If MCP servers are unavailable or `USE_MCP_TOOLSET=false`, MIRA falls back to local tool implementations that use direct API calls.
+
 ## 🧪 Development
 
 ### Running Tests
@@ -328,6 +473,8 @@ mypy src
 ## 📚 References
 
 - [Google Agent Development Kit (ADK)](https://github.com/google/adk-python) - Agent framework
+- [Google ADK MCP Integration](https://cloud.google.com/blog/topics/developers-practitioners/use-google-adk-and-mcp-with-an-external-server) - Using ADK with MCP
+- [Datadog LLM Observability](https://docs.datadoghq.com/llm_observability/instrumentation/sdk/) - LLM monitoring
 - [Datadog MCP Server](https://github.com/shelfio/datadog-mcp) - Datadog integration
 - [Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp) - Azure DevOps integration
 - [FastAPI](https://fastapi.tiangolo.com/) - Web framework
