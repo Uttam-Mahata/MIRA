@@ -99,6 +99,26 @@ class Settings(BaseSettings):
         description="Secret for validating webhook signatures",
     )
 
+    # Notification settings
+    teams_webhook_url: str | None = Field(
+        default=None,
+        description="Microsoft Teams incoming webhook URL for notifications",
+    )
+    google_space_webhook_url: str | None = Field(
+        default=None,
+        description="Google Chat Space webhook URL for notifications",
+    )
+
+    # Ticket creation settings
+    auto_create_tickets: bool = Field(
+        default=True,
+        description="Automatically create Azure DevOps work items for incidents",
+    )
+    default_work_item_type: str = Field(
+        default="Bug",
+        description="Default work item type for incident tickets (Bug, Task, Issue)",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -80,21 +80,25 @@ def get_azure_devops_mcp_toolset(
         toolset = McpToolset(
             connection_params=StdioConnectionParams(server_params=server_params),
             tool_filter=[
-                # Repository tools
+                # Repository tools - for code analysis
                 "repo_list_repos_by_project",
                 "repo_list_pull_requests_by_repo_or_project",
                 "repo_get_pull_request_by_id",
                 "repo_search_commits",
                 "repo_list_branches_by_repo",
-                # Work item tools
+                "repo_list_pull_request_threads",
+                # Work item tools - for creating/managing tickets
                 "work_create_work_item",
                 "work_get_work_item",
                 "work_search_work_items",
                 "work_update_work_item",
-                # Pipeline tools
+                "work_add_comment",
+                "work_list_work_item_types",
+                # Pipeline tools - for CI/CD analysis
                 "pipelines_list_pipelines",
                 "pipelines_get_pipeline",
                 "pipelines_list_runs",
+                "pipelines_get_run",
             ],
         )
         logger.info(f"Created Azure DevOps McpToolset for organization: {org}")
@@ -111,11 +115,17 @@ def get_datadog_mcp_toolset(
     """Create an McpToolset for Datadog MCP server.
 
     Datadog MCP server can be accessed via HTTP using the
-    StreamableHTTPConnectionParams transport.
+    StreamableHTTPConnectionParams transport. This toolset supports
+    querying logs, metrics, traces, and monitors across multiple services.
+
+    When multiple applications/services are running on Datadog, the agent
+    can use the service_name filter or query across all services using
+    the search_logs and query_metrics tools.
 
     Args:
         settings: Application settings containing Datadog credentials.
-        service_name: Service name to scope queries to.
+        service_name: Optional service name to scope queries to. If None,
+                     the agent can query across all services.
 
     Returns:
         McpToolset configured for Datadog, or None if not configured.
@@ -137,8 +147,12 @@ def get_datadog_mcp_toolset(
         )
         return None
 
-    # Datadog MCP server URL - can be configured via environment
-    mcp_server_url = os.getenv("DATADOG_MCP_SERVER_URL", "http://localhost:3001/mcp")
+    # Datadog MCP server URL - prefer settings, fall back to environment variable
+    mcp_server_url = (
+        settings.datadog_mcp_server_url
+        or os.getenv("DATADOG_MCP_SERVER_URL")
+        or "http://localhost:3001/mcp"
+    )
 
     try:
         toolset = McpToolset(
@@ -149,33 +163,47 @@ def get_datadog_mcp_toolset(
                     "DD-APPLICATION-KEY": settings.datadog_app_key,
                 },
             ),
+            # Include comprehensive Datadog tools for observability
             tool_filter=[
+                # Log management
                 "search_logs",
                 "get_logs",
+                "list_log_indexes",
+                # Metrics
                 "query_metrics",
+                "list_metrics",
+                # APM Traces
+                "search_traces",
+                "get_trace",
+                "list_services",
+                # Monitors and Alerts
                 "list_monitors",
                 "get_monitor",
+                "get_monitor_state",
+                # Events
+                "list_events",
+                "get_event",
             ],
         )
         logger.info(
             f"Created Datadog McpToolset for site: {settings.datadog_site}"
-            + (f", service: {service_name}" if service_name else "")
+            + (f", service: {service_name}" if service_name else " (all services)")
         )
         return toolset
     except Exception as e:
         logger.error(f"Failed to create Datadog McpToolset: {e}")
         return None
+        return None
 
 
-def get_github_mcp_toolset(
-    repo_filter: str | None = None,
-) -> Any:
+def get_github_mcp_toolset() -> Any:
     """Create an McpToolset for GitHub MCP server (via Copilot).
 
     This connects to GitHub's Copilot MCP server for code-related queries.
+    The GitHub Copilot MCP endpoint is used for repository and code search.
 
-    Args:
-        repo_filter: Optional repository filter (e.g., "owner/repo").
+    Note: This requires a valid GitHub Personal Access Token with
+    appropriate permissions for the GitHub Copilot MCP service.
 
     Returns:
         McpToolset configured for GitHub, or None if not configured.
@@ -199,10 +227,14 @@ def get_github_mcp_toolset(
         )
         return None
 
+    # GitHub Copilot MCP server URL - this is the official endpoint
+    # See: https://docs.github.com/en/copilot/customizing-copilot
+    github_mcp_url = os.getenv("GITHUB_MCP_SERVER_URL", "https://api.githubcopilot.com/mcp/")
+
     try:
         toolset = McpToolset(
             connection_params=StreamableHTTPConnectionParams(
-                url="https://api.githubcopilot.com/mcp/",
+                url=github_mcp_url,
                 headers={
                     "Authorization": f"Bearer {github_token}",
                 },
@@ -217,9 +249,7 @@ def get_github_mcp_toolset(
                 "search_code",
             ],
         )
-        logger.info(
-            "Created GitHub McpToolset" + (f" for repo: {repo_filter}" if repo_filter else "")
-        )
+        logger.info("Created GitHub McpToolset")
         return toolset
     except Exception as e:
         logger.error(f"Failed to create GitHub McpToolset: {e}")

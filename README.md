@@ -342,11 +342,12 @@ The Google Agent Development Kit (ADK) provides the `MCPToolset` class that enab
 ### Integration Example
 
 ```python
-from google.adk.tools.mcp_tool import MCPToolset, StdioConnectionParams
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from mcp import StdioServerParameters
 
 # Connect to Azure DevOps MCP server
-azure_toolset = MCPToolset(
+azure_toolset = McpToolset(
     connection_params=StdioConnectionParams(
         server_params=StdioServerParameters(
             command="npx",
@@ -373,16 +374,54 @@ Enable MCP integration in your `.env` file:
 # Enable MCPToolset for direct MCP server integration
 USE_MCP_TOOLSET=true
 
-# Azure DevOps (for commit and PR analysis)
+# Azure DevOps (for commit, PR analysis, and ticket creation)
 AZURE_DEVOPS_PAT=your_pat
 AZURE_DEVOPS_ORGANIZATION=your-org
 
-# Datadog MCP Server (optional HTTP-based)
+# Datadog MCP Server (for logs, traces, and metrics)
 DATADOG_MCP_SERVER_URL=http://localhost:3001/mcp
 
 # GitHub (for code search)
 GITHUB_PERSONAL_ACCESS_TOKEN=your_github_pat
+
+# Notifications (optional)
+TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/...
+GOOGLE_SPACE_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/...
+
+# Ticket creation
+AUTO_CREATE_TICKETS=true
 ```
+
+### Multi-Service Support
+
+MIRA supports environments with multiple applications and services running on Datadog. The agent workflow handles this by:
+
+1. **Service-scoped queries**: When an alert triggers for a specific service, the agent focuses on that service's logs and traces
+2. **Cross-service analysis**: The agent can query related services if needed to understand dependencies
+3. **Service registry mapping**: Each service maps to its repository in Azure DevOps via the service registry
+
+### Complete Investigation Workflow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Datadog Alert   │────▶│  MIRA Agent     │────▶│ Azure DevOps    │
+│ (Webhook)       │     │  (Gemini LLM)   │     │ Work Item       │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+              ┌─────▼─────┐           ┌──────▼──────┐
+              │  Teams    │           │ Google Space │
+              │  Notify   │           │   Notify     │
+              └───────────┘           └──────────────┘
+```
+
+1. **Datadog** triggers a webhook when a monitor fires
+2. **MIRA** receives the alert and creates an investigation agent
+3. **Agent** queries Datadog for logs, traces, and metrics
+4. **Gemini** analyzes the data and correlates with code changes
+5. **Agent** creates an Azure DevOps work item with RCA
+6. **Agent** notifies the team via Teams/Google Space
 
 ### Fallback Mode
 

@@ -50,9 +50,7 @@ def settings_no_azure() -> Settings:
 class TestAzureDevOpsMCPToolset:
     """Tests for Azure DevOps MCP toolset creation."""
 
-    def test_returns_none_without_organization(
-        self, settings_no_azure: Settings
-    ) -> None:
+    def test_returns_none_without_organization(self, settings_no_azure: Settings) -> None:
         """Test that None is returned when organization is not set."""
         result = get_azure_devops_mcp_toolset(settings_no_azure)
         # Should return None since no organization is configured
@@ -68,18 +66,14 @@ class TestAzureDevOpsMCPToolset:
 
     def test_explicit_organization_override(self, settings: Settings) -> None:
         """Test that explicit organization parameter overrides settings."""
-        result = get_azure_devops_mcp_toolset(
-            settings, organization="explicit-org"
-        )
+        result = get_azure_devops_mcp_toolset(settings, organization="explicit-org")
         assert result is not None
 
 
 class TestDatadogMCPToolset:
     """Tests for Datadog MCP toolset creation."""
 
-    def test_returns_none_without_credentials(
-        self, settings_no_datadog: Settings
-    ) -> None:
+    def test_returns_none_without_credentials(self, settings_no_datadog: Settings) -> None:
         """Test that None is returned when credentials are not set."""
         result = get_datadog_mcp_toolset(settings_no_datadog)
         assert result is None
@@ -101,9 +95,7 @@ class TestGitHubMCPToolset:
 
     def test_returns_toolset_with_token(self) -> None:
         """Test that a toolset is returned when token is set."""
-        with patch.dict(
-            os.environ, {"GITHUB_PERSONAL_ACCESS_TOKEN": "test-token"}
-        ):
+        with patch.dict(os.environ, {"GITHUB_PERSONAL_ACCESS_TOKEN": "test-token"}):
             result = get_github_mcp_toolset()
         assert result is not None
 
