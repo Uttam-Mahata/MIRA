@@ -34,11 +34,23 @@ This strategy involves building **bespoke MCP servers** using Python SDKs wrappe
 *   **Pros:**
     *   **Safety:** We enforce `service:{name}` filtering at the code level.
     *   **Simplicity:** We expose only the specific tools the agent needs (`dd_get_logs`, `dd_get_metrics`).
-    *   **Control:** We can implement custom logic (e.g., aggregation) before returning data to the LLM.
+    *   **Control:** We can implement custom logic (e.g. aggregation) before returning data to the LLM.
+
+---
+
+## 📖 Documentation
+
+For more detailed information about the MIRA system, check out the following guides:
+
+- [**System Architecture**](docs/architecture.md): High-level system design and component overview.
+- [**MCP Client Integrations**](docs/mcp-clients.md): Detailed look at Datadog (FastMCP) and Azure DevOps integration details.
+- [**MCP Server Comparison**](docs/mcp-server-comparison.md): Technical comparison of Stdio-based implementations (Node.js vs. Python).
+- [**Investigator Agent Workflow**](docs/agent-workflow.md): The lifecycle and reasoning loop of the Worker Agent.
 
 ---
 
 ## 🚀 Quick Start
+
 
 ### Prerequisites
 
