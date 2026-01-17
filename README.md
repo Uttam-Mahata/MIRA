@@ -6,6 +6,8 @@
 [![Datadog](https://img.shields.io/badge/Datadog-Observability-632CA6.svg)](https://www.datadoghq.com/)
 [![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Integration-0078D7.svg)](https://azure.microsoft.com/en-us/services/devops/)
 
+![MIRA Architecture](arch.png)
+
 An automated incident investigation system designed to reduce Mean Time To Recovery (MTTR) for microservices ecosystems. MIRA uses **Google Agent Development Kit (ADK)** for intelligent agents and integrates with **Datadog** and **Azure DevOps** via the **Model Context Protocol (MCP)**.
 
 ## 📖 Integration Strategies
