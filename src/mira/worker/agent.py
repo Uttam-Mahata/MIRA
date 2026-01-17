@@ -129,13 +129,19 @@ class InvestigatorAgent:
             mcp_path = os.path.abspath(self.settings.azure_mcp_path)
             logger.info(f"Connecting to Azure DevOps MCP via Stdio: {mcp_path}")
 
+            # azure-devops-mcp expects: node index.js <org> --authentication envvar
+            # and the token in ADO_MCP_AUTH_TOKEN env var
             azure_tools, azure_stack = await MCPToolset.from_server(
                 connection_params=StdioServerParams(
                     command="node",
-                    args=[mcp_path],
+                    args=[
+                        mcp_path,
+                        self.settings.azure_devops_organization or "",
+                        "--authentication",
+                        "envvar",
+                    ],
                     env={
-                        "AZURE_DEVOPS_PAT": self.settings.azure_devops_pat or "",
-                        "AZURE_DEVOPS_ORG_URL": self.settings.azure_devops_organization_url or "",
+                        "ADO_MCP_AUTH_TOKEN": self.settings.azure_devops_pat or "",
                     },
                 )
             )
