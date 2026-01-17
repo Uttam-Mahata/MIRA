@@ -16,9 +16,8 @@ from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.mcp_tool.mcp_toolset import (
-    MCPToolset,
-    SseServerParams,
-    StdioServerParams,
+    McpToolset,
+    StdioServerParameters,
 )
 from google.genai import types as genai_types
 

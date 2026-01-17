@@ -16,7 +16,7 @@ from datadog_api_client.v2.api.metrics_api import MetricsApi
 from datadog_api_client.v2.api.monitors_api import MonitorsApi
 from datadog_api_client.v2.model.logs_list_request import LogsListRequest
 from datadog_api_client.v2.model.logs_list_request_page import LogsListRequestPage
-from datadog_api_client.v2.model.logs_query_filter import LogsListRequestFilter
+from datadog_api_client.v2.model.logs_query_filter import LogsQueryFilter
 from datadog_api_client.v2.model.logs_sort import LogsSort
 from fastmcp import FastMCP
 
