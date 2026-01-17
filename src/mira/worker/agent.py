@@ -123,19 +123,24 @@ class InvestigatorAgent:
         """
         all_tools = []
 
-        # 1. Connect to Azure DevOps (Stdio/Node)
+        # 1. Connect to Azure DevOps (Stdio/Node via npx)
         try:
-            mcp_path = os.path.abspath(self.settings.azure_mcp_path)
-            logger.info(f"Connecting to Azure DevOps MCP via Stdio: {mcp_path}")
+            logger.info("Connecting to Azure DevOps MCP via npx Stdio")
 
-            # azure-devops-mcp expects: node index.js <org> --authentication envvar
+            # azure-devops-mcp expects: npx -y @azure-devops/mcp <org> -d <domains> --authentication envvar
             # and the token in ADO_MCP_AUTH_TOKEN env var
-            azure_tools, azure_stack = await MCPToolset.from_server(
-                connection_params=StdioServerParams(
-                    command="node",
+            azure_toolset = McpToolset(
+                connection_params=StdioServerParameters(
+                    command="npx",
                     args=[
-                        mcp_path,
+                        "-y",
+                        "@azure-devops/mcp",
                         self.settings.azure_devops_organization or "",
+                        "-d",
+                        "core",
+                        "work",
+                        "work-items",
+                        "repositories",
                         "--authentication",
                         "envvar",
                     ],
@@ -144,32 +149,32 @@ class InvestigatorAgent:
                     },
                 )
             )
-            await exit_stack.enter_async_context(azure_stack)
-            all_tools.extend(azure_tools)
-            logger.info(f"Loaded {len(azure_tools)} tools from Azure DevOps MCP")
+            exit_stack.push_async_callback(azure_toolset.close)
+            all_tools.append(azure_toolset)
+            logger.info("Initialized Azure DevOps MCP toolset with filtered domains")
         except Exception as e:
-            logger.error(f"Failed to load Azure DevOps MCP tools: {e}")
+            logger.error(f"Failed to initialize Azure DevOps MCP tools: {e}")
 
         # 2. Connect to Datadog (Stdio/Python)
         # Using the local Python MCP server we just implemented
         try:
             dd_mcp_path = os.path.abspath("src/mira/mcp_clients/datadog_client.py")
             logger.info(f"Connecting to Datadog MCP via Stdio: {dd_mcp_path}")
-            
-            datadog_tools, datadog_stack = await MCPToolset.from_server(
-                connection_params=StdioServerParams(
+
+            datadog_toolset = McpToolset(
+                connection_params=StdioServerParameters(
                     command=sys.executable,
                     args=[dd_mcp_path],
                     env={
                         "DATADOG_API_KEY": self.settings.datadog_api_key or "",
                         "DATADOG_APP_KEY": self.settings.datadog_app_key or "",
                         "DATADOG_SITE": self.settings.datadog_site,
-                    }
+                    },
                 )
             )
-            await exit_stack.enter_async_context(datadog_stack)
-            all_tools.extend(datadog_tools)
-            logger.info(f"Loaded {len(datadog_tools)} tools from Datadog MCP")
+            exit_stack.push_async_callback(datadog_toolset.close)
+            all_tools.append(datadog_toolset)
+            logger.info(f"Loaded tools from Datadog MCP via {dd_mcp_path}")
         except Exception as e:
             logger.error(f"Failed to load Datadog MCP tools: {e}")
 
