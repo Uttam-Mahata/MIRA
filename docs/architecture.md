@@ -3,6 +3,13 @@
 ## Overview
 MIRA (Microservice Incident Response Agent) is an automated system designed to investigate infrastructure incidents. It uses a **Worker Agent** pattern where ephemeral AI agents are spawned to investigate specific alerts.
 
+> **Visual Design Files**:
+> - **System Architecture**: [docs/architecture.excalidraw](./architecture.excalidraw)
+> - **Investigation Workflow**: [docs/workflow_investigation.excalidraw](./workflow_investigation.excalidraw)
+> - **Worker Agent Internals**: [docs/component_worker.excalidraw](./component_worker.excalidraw)
+> 
+> *Open these files with Excalidraw to view details.*
+
 ## High-Level Components
 
 ```mermaid
